@@ -328,6 +328,41 @@ static node_id_t disassemble_bb(disassembler_t* self, uint64_t base_address, uin
 	return res_nid;
 }
 
+size_t CAPSTONE_API skipdata_tdcall_cb(const uint8_t *buffer, size_t size, size_t offset, void *user_data)
+{
+	const uint8_t tdcall[] = { 0x66, 0x0f, 0x01, 0xcc };
+
+	if (size < 4) {
+		fprintf(stderr,
+				"libxdc skipdata: too short\n");
+		return 1;
+	}
+
+	if (0 == memcmp(buffer+offset, tdcall, sizeof(tdcall))) {
+		//fprintf(stderr,
+		//		"libxdc skipdata: recognized tdcall: 0x%02x%02x%02x%02x\n",
+		//		buffer[offset],
+		//		buffer[offset+1],
+		//		buffer[offset+2],
+		//		buffer[offset+3]);
+		return 4; /* skip 4 bytes */
+	}
+
+	fprintf(stderr,
+		   	"libxdc skipdata: unrecognized input 0x%02x%02x%02x%02x\n",
+			buffer[offset],
+			buffer[offset+1],
+			buffer[offset+2],
+			buffer[offset+3]);
+
+	return 1; /* default skipdata action: skip one byte */
+}
+
+cs_opt_skipdata skipdata_option = {
+	"byte",
+	&skipdata_tdcall_cb,
+};
+
 disassembler_t* init_disassembler(uint64_t filter[4][2], void* (*page_cache_fetch_fptr)(void*, uint64_t, bool*), void* page_cache_fetch_opaque, fuzz_bitmap_t* fuzz_bitmap){
 	disassembler_t* self = malloc(sizeof(disassembler_t));
 
@@ -405,6 +440,10 @@ disassembler_t* init_disassembler(uint64_t filter[4][2], void* (*page_cache_fetc
 	cs_option(self->handle_16, CS_OPT_DETAIL, CS_OPT_ON);
 	cs_option(self->handle_32, CS_OPT_DETAIL, CS_OPT_ON);
 	cs_option(self->handle_64, CS_OPT_DETAIL, CS_OPT_ON);
+
+	// enable skipping fake tdcall instruction: .byte 0x66,0x0f,0x01,0xcc
+	cs_option(self->handle_64, CS_OPT_SKIPDATA, CS_OPT_ON);
+	cs_option(self->handle_64, CS_OPT_SKIPDATA_SETUP, (size_t)&skipdata_option);
 
 	self->trace_mode = false;
 
