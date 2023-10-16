@@ -35,6 +35,7 @@ SOFTWARE.
 #include <stdio.h>
 #include <sys/mman.h>
 #include <assert.h>
+#include <fcntl.h>
 #include "page_cache.h"
 
 
